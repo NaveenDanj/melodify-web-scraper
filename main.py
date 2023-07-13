@@ -10,6 +10,9 @@ from firebase_admin import storage
 import csv
 from firebase_admin import firestore
 import random
+from fake_useragent import UserAgent
+from lib.Lib import select_engine_and_search , select_engine_and_scrape
+import json
 
 
 PROJECT_ID = 'melodify-78c44'
@@ -65,34 +68,36 @@ def upload_file_to_firebase(path , upload_dict):
 
 
 def search_and_download_song(song_name):
-    
-    query = f"site:youtube.com {song_name}"
-    search_url = f"https://www.google.com/search?q={query}"
-    response = requests.get(search_url)
+
+    response = select_engine_and_search(song_name , "google")
     soup = BeautifulSoup(response.text, 'html.parser')
     search_results = soup.find_all('a')
     
-    # print("soup is -> " , soup)
-
     for result in search_results:
         # Extract the URL and title of the search result
+        # url = result.get("href")
+        # has_title = result.find("h3")
 
-        url = result.get("href")
-        has_title = result.find("h3")
-        if not has_title:
-            continue
+        # if not has_title or "music.youtube.com" in url :
+        #     continue
 
-        title = has_title.text
-        url = url.split("%3Fv%3D")
-        url = url[1].split("&")
-        url = "https://www.youtube.com/watch?v=" + url[0]
+        # title = has_title.text
+        # url = url.split("%3Fv%3D")
+        # url = url[1].split("&")
+        # url = "https://www.youtube.com/watch?v=" + url[0]
 
-        thumbnail = fetch_thumbnail(url)
+        # # thumbnail = fetch_thumbnail(url)
+
+        url = select_engine_and_scrape(result , "google")
+
+        if not url:
+            continue 
+
         saved_path = download_song(url)
-        
+
         out_dict = {
             "url" : url,
-            "thumbnail" : thumbnail,
+            # "thumbnail" : thumbnail,
             "path" : saved_path
         }
         
@@ -110,7 +115,6 @@ def fetch_thumbnail(url):
 def download_song(url):
     uuid_string = str(uuid.uuid4())
     title_save_name = '/out/'+uuid_string+'.%(ext)s'
-    title_return_name = 'out/'+uuid_string+'.%(ext)s'
 
     ydl_opts = {
         'format': 'm4a/bestaudio/best',
@@ -128,7 +132,8 @@ def download_song(url):
             info_dict = ydl.extract_info(url, download=False)
             title = info_dict.get('title', None)
             ext = 'm4a'
-            return title_return_name
+            saved_path = 'out/'+uuid_string+'.'+ext
+            return saved_path
 
     except Exception as e:
         print(str(e))
@@ -152,18 +157,66 @@ def read_data_file():
     return out_list
 
 def initialize_download_from_out_list(out_list):
-    out_list.reverse()
-    dict_list = []
+    # out_list.reverse()
+    # dict_list = []
 
-    for song in out_list[0:10]:
+    last_index = 0
+    last_successfull = 0
+    counter = 0
+    data = None
+
+    with open("process.json") as json_file:
+        # Load the JSON data
+        data = json.load(json_file)
+        last_index = data['last']
+
+    end_index = last_index + 40
+    counter = last_index+1
+    last_successfull = counter
+
+    for song in out_list[last_index+1 : end_index]:
+
+        if counter - last_successfull > 5:
+
+            with open("process.json", "w") as json_file:
+                # Write the data to the file
+                data['last'] = last_successfull
+                json.dump(data, json_file)
+
+            return
+
+
         out = search_and_download_song(song["title"])
-        print("out is " , out)
+        print(out)
+        
+        if not out:
+            counter += 1
+            print(counter , " -> " , last_successfull)
+            continue
+        
+        if out['path'] == None:
+            counter += 1
+            print(counter , " -> " , last_successfull)
+            continue
+
         out["artist"] = song["artist"]
         out['original_title'] = song["original_title"]
-        dict_list.append(out)
-        time.sleep(random.choice([1,2,3,4,5]))
+        # dict_list.append(out)
+        upload_file_to_firebase(out['path'] , out)
+        time.sleep(random.choice([3,4,5,6,7,8,9]))
 
-    return dict_list
+        last_successfull = counter
+        counter += 1
+
+        with open("process.json", "w") as json_file:
+            # Write the data to the file
+            data['last'] = last_successfull
+            json.dump(data, json_file)
+            
+        print(song["title"] , ":")
+        print(counter , " -> " , last_successfull)
+
+    # return dict_list
 
 def upload_process(dict_list):
     for song in dict_list:
@@ -181,13 +234,6 @@ def preprocess_data(data):
     data['meta'] = json_data['data'][0]
     return data
 
-init_firebase()
-
-out_list = read_data_file()
-dict_list = initialize_download_from_out_list(out_list)
-upload_process(dict_list)
-
-
 def _test_firebase_upload():
     folder_path = 'out'
     file_paths = []
@@ -202,3 +248,13 @@ def _test_firebase_upload():
             "path" : path
         }
         upload_file_to_firebase(path , sample_dict)
+
+
+init_firebase()
+
+out_list = read_data_file()
+initialize_download_from_out_list(out_list)
+# upload_process(dict_list)
+
+
+# search_and_download_song('"The Kid LAROI, Justin Bieber",STAY (with Justin Bieber)')
