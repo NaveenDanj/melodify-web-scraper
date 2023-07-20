@@ -58,11 +58,19 @@ def upload_file_to_firebase(path , upload_dict):
 
         data = upload_dict
         data['destination_path'] = destination_blob_name
-
         data = preprocess_data(data)
+
+        # upload search_results collection documents
+        print("docuemnt id -> " , data['song_id'])
+        ref = db.collection("search_results").document( str(data['song_id']) )
+        ref.update({
+            "downloaded": True,
+            "available" : True
+        })
 
         doc_ref = db.collection('songs').add(data)
         print(f"Document added with ID: {doc_ref[1].id}")
+
     except OSError as e:
         print(f"Error deleting the file: {e}")
 
@@ -168,13 +176,13 @@ def initialize_download_from_out_list(out_list):
     with open("process.json") as json_file:
         # Load the JSON data
         data = json.load(json_file)
-        last_index = data['last']
+        last_index = 0
 
     end_index = last_index + 40
     counter = last_index+1
     last_successfull = counter
 
-    for song in out_list[last_index+1 : end_index]:
+    for song in out_list:
 
         if counter - last_successfull > 5:
 
@@ -201,6 +209,7 @@ def initialize_download_from_out_list(out_list):
 
         out["artist"] = song["artist"]
         out['original_title'] = song["original_title"]
+        out['song_id'] = song['song_id']
         # dict_list.append(out)
         upload_file_to_firebase(out['path'] , out)
         time.sleep(random.choice([3,4,5,6,7,8,9]))
@@ -250,10 +259,10 @@ def _test_firebase_upload():
         upload_file_to_firebase(path , sample_dict)
 
 
-init_firebase()
+# init_firebase()
 
-out_list = read_data_file()
-initialize_download_from_out_list(out_list)
+# out_list = read_data_file()
+# initialize_download_from_out_list(out_list)
 # upload_process(dict_list)
 
 
