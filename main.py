@@ -77,10 +77,12 @@ def upload_file_to_firebase(path , upload_dict):
 
 def search_and_download_song(song_name):
 
-    response = select_engine_and_search(song_name , "google")
+    response = select_engine_and_search(song_name , "other")
     soup = BeautifulSoup(response.text, 'html.parser')
     search_results = soup.find_all('a')
     
+    print("response is ->>> " , response.text)
+
     for result in search_results:
         # Extract the URL and title of the search result
         # url = result.get("href")
@@ -96,7 +98,7 @@ def search_and_download_song(song_name):
 
         # # thumbnail = fetch_thumbnail(url)
 
-        url = select_engine_and_scrape(result , "google")
+        url = select_engine_and_scrape(result , "other")
 
         if not url:
             continue 
@@ -173,10 +175,10 @@ def initialize_download_from_out_list(out_list):
     counter = 0
     data = None
 
-    with open("process.json") as json_file:
-        # Load the JSON data
-        data = json.load(json_file)
-        last_index = 0
+    # with open("process.json") as json_file:
+    #     # Load the JSON data
+    #     data = json.load(json_file)
+    #     last_index = 0
 
     end_index = last_index + 40
     counter = last_index+1
@@ -195,17 +197,17 @@ def initialize_download_from_out_list(out_list):
 
 
         out = search_and_download_song(song["title"])
-        print(out)
+        print("out is -> ", out)
         
-        if not out:
-            counter += 1
-            print(counter , " -> " , last_successfull)
-            continue
+        # if not out:
+        #     counter += 1
+        #     print(counter , " -> " , last_successfull)
+        #     continue
         
-        if out['path'] == None:
-            counter += 1
-            print(counter , " -> " , last_successfull)
-            continue
+        # if out['path'] == None:
+        #     counter += 1
+        #     print(counter , " -> " , last_successfull)
+        #     continue
 
         out["artist"] = song["artist"]
         out['original_title'] = song["original_title"]
@@ -217,13 +219,12 @@ def initialize_download_from_out_list(out_list):
         last_successfull = counter
         counter += 1
 
-        with open("process.json", "w") as json_file:
-            # Write the data to the file
-            data['last'] = last_successfull
-            json.dump(data, json_file)
+        # with open("process.json", "w") as json_file:
+        #     # Write the data to the file
+        #     data['last'] = last_successfull
+        #     json.dump(data, json_file)
             
-        print(song["title"] , ":")
-        print(counter , " -> " , last_successfull)
+        print(song["title"])
 
     # return dict_list
 

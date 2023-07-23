@@ -68,6 +68,7 @@ class DownloadAPI(Resource):
         
         for doc in docs:
             data = doc.to_dict()
+            print("data ->>>> " , data)
             data['artist'] = data['artist_name']
             title = data['title']
             data['title'] = data['artist_name'] + " " + data['title']
